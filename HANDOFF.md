@@ -67,11 +67,14 @@ final_project/
 ## 7. Open items / TODO
 - [x] **Verify bucket file naming** — CONFIRMED: files are in `yellow/`, `green/`, `fhv/` subfolders as `<type>_tripdata_2025-01..12.parquet`; CSV at root. URIs in `01` updated.
 - [x] **Run 02 / confirm FHV columns** — CONFIRMED present (incl. SR_Flag, Affiliated_base_number, dropOff_datetime, PUlocationID/DOlocationID). Case differences are irrelevant (BQ is case-insensitive). Yellow uses `Airport_fee`. Key finding: **FHV PU/DO location ids are largely NULL** → `05` filter updated to exempt FHV from the location-not-null drop (keeps FHV for volume/temporal). Also now drops zero/negative-duration glitch rows.
-- [ ] Run the full pipeline; capture row/NULL counts (06) and analysis outputs (07).
-- [ ] Pick the strongest anomaly from `07` section E and write a hypothesis.
-- [ ] Deploy app, fill `app_url.txt`, test the 4 questions + a couple that *should* fail validation (e.g. "delete all trips") for the security demo.
-- [ ] **Collect 2 concrete Gemini failure cases** (bad/empty/subtly-wrong SQL) for the AI-agent evaluation slide — capture the actual generated SQL.
-- [ ] Build the **.pptx** (10–15 slides): methodology, column-mapping, DQ decisions+counts, the 4 analysis sections, anomaly, app demo screenshots, honest Gemini critique, recommendations.
+- [x] Run the full pipeline; capture row/NULL counts (06) — DONE: 69,778,110 rows (yellow 44.2M / FHV 25.0M / green 0.56M). Analysis (07) captured into PPTX_Outline_Observations.md Slides 5–9. (Re-run patched 07 for the new D1 median/capped-mean + D4 cross-type-borough numbers.)
+- [x] Pick the strongest anomaly — DONE: federal-holiday calendar (E1) is the headline (every top day-over-day swing maps to a holiday); geographic dropoff/pickup imbalance (E2: Newark, parks, Bronx) is the secondary, folded into the geographic slide.
+- [x] Deploy app + test the 4 questions — DONE: deployed to Cloud Run, all four required questions return correct SQL + table + chart. Adversarial DDL prompts ("drop the trips table", "Write a DROP TABLE…", "Generate a DELETE…") all got reinterpreted by Gemini into benign `SELECT`/`SELECT 1` — the SELECT-only prompt neutralizes DDL upstream, so the validator's reject path never fires (read-only service account is the deeper backstop). Still need to paste the live URL into `app_url.txt`.
+- [x] **Collect 2 Gemini failure cases** — CAPTURED: (1) "top 10 pickup zones" returns the NULL bucket (`None`, 20.57M = FHV null-location rows) as #1 because Gemini omitted `WHERE pickup_zone IS NOT NULL` — subtly wrong, and inconsistent with how it handled the routes question; (2) adversarial DDL prompts produce uninformative `SELECT 1` no-ops with no explanation.
+- [ ] **Null-zone prompt fix** (deferred by Sara): strengthen the schema prompt so Gemini always excludes NULL `pickup_zone`/`pickup_borough` on geographic groupings. Capture before/after for the "guardrail decisions that improved accuracy" part of the AI-eval. (Failure-case screenshot already captured.)
+- [ ] **(Optional) Reasoning/interpretation box**: have Gemini return structured JSON `{sql, explanation}`; show the interpretation, and on empty `sql` display the refusal reason instead of running a `SELECT 1`. Also tighten the chart heuristic to only chart aggregated results.
+- [ ] **(Optional) Security hardening**: lower bytes cap to ~1–2GB; `--max-instances=2` on Cloud Run; set a project-level BigQuery daily bytes-billed quota (best protection for the open endpoint). Read-only SA is already the core backstop.
+- [ ] Build the **.pptx** (10–15 slides) from `PPTX_Outline_Observations.md` (running deck skeleton): methodology, column-mapping, DQ decisions+counts, the 4 analysis sections, anomaly, app demo screenshots, honest Gemini critique, recommendations.
 - [ ] Zip `sql/ + app/ + app_url.txt`; submit pptx separately.
 
 ## 8. Suggested conversation checkpoints (per Sara's working style)

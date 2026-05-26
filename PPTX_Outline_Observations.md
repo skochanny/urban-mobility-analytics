@@ -46,29 +46,54 @@ Problems quantified **[confirmed, sql 04]**:
 Filtering decisions:
 - **DROP** — null/out-of-2025 pickup; metered (yellow/green) null locations; present-but-invalid duration (zero/negative or >24h); metered distance ≤ 0 / negative fare / non-positive total.
 - **KEEP** — FHV rows with null locations (preserves volume + temporal signal; they self-exclude from geographic queries since their zone join is NULL); FHV null fare/distance/passenger; `passenger_count = 0` (too unreliable to use as a drop rule).
-- Net effect: ~6% of yellow removed (mostly negative-fare voids/adjustments); FHV essentially fully retained for volume. Post-filter counts **[PENDING sql 06]**, expected ≈ 70.6M total (≈ 45M yellow, ~25M fhv, ~0.56M green).
+- Net effect — **post-filter final table [confirmed, sql 06]: 69,778,110 rows.**
+
+| trip_type | final rows | share |
+|---|---:|---:|
+| yellow | 44,178,686 | 63.3% |
+| fhv | 25,035,748 | 35.9% |
+| green | 563,676 | 0.8% |
+| **total** | **69,778,110** | |
+
+- Rows dropped vs raw: yellow 4,543,916 (9.3%, mostly negative-fare voids/adjustments), green 27,699 (4.7%), FHV 11,796 (0.05%) — **6.2% overall.** FHV essentially fully retained, confirming the location-exemption decision.
+- Date coverage clean: 2025-01-01 → 2025-12-31, all 12 months present. [06 Q2]
+- Final-table NULL pattern [06 Q3/Q4]: `null_distance` = `null_fare` = 25,035,748 = **exactly all FHV** (yellow/green 0 nulls); `null_pickup_borough` 20,566,941 and `null_dropoff_borough` 4,204,507 = FHV rows with missing PU/DO locations; `null_dropoff_ts` = 0; `null_tip_rate` 25,045,429 = all FHV + ~9,681 zero-fare metered trips.
 - `tip_rate` caveat: tips recorded for **card only** (`payment_type = 1`); cash shows 0 — restrict tip analysis accordingly.
 
-## Slide 5 — Volume by trip type [04 Q1 → 06 Q1]
-- Yellow dominates (~66%), FHV ~34%, **green < 1% and nearly vestigial** — a story about the decline of street-hail green cabs.
-- Use post-filter numbers from `06` for the final figure.
+## Slide 5 — Volume by trip type [confirmed, sql 06]
+- **Post-filter shares: yellow 63.3%, FHV 35.9%, green 0.81%** (of 69,778,110 trips).
+- Yellow dominates; FHV is over a third of all trips; **green < 1% and nearly vestigial** — a story about the decline of street-hail green cabs.
+- FHV's share *rose* after filtering (33.7% → 35.9%) because yellow shed proportionally more rows to data-quality drops — worth a one-line mention.
 
-## Slide 6 — Temporal patterns [PENDING sql 07 B]
-- Monthly trend by type; daily series; weekday vs weekend (per-day average for a fair comparison); day-of-week; **hour-of-day demand curve** (also app demo Q3); weekday-vs-weekend hourly split.
-- Watch for: any congestion-pricing-era shift across the 2025 months.
+## Slide 6 — Temporal patterns [confirmed, sql 07 B]
+- **Monthly:** yellow ranges 3.18M (Aug, low) → 4.09M (May, high) with a clear **summer slump (Jul–Aug)** and a December bump; FHV is flatter and peaks in **fall (Oct, 2.45M)** with *no* August dip; green flat at ~44–52k/mo. → Yellow and FHV have **opposite seasonality**. (Caveat: FHV April reads oddly low at 1.70M — possible incomplete file, not real demand.)
+- **Weekday vs weekend:** weekday avg 197,694 trips/day vs weekend 174,806/day (~13% busier on weekdays — commute-driven). [B3]
+- **Day of week:** midweek peak (Wed 10.85M, Thu 10.82M), Sunday lowest (8.48M). [B4]
+- **Hour of day** (app demo Q3): trough at 3–4am (~620k), broad **midday/afternoon plateau 12:00–18:00 (~4.0–4.24M, single peak at 2pm)**, tapering overnight. [B5]
+- **Weekday vs weekend hourly** (the textbook contrast): weekdays show a sharp **7–9am commute peak**; weekends flatten the morning and instead **spike at 1–3am** (nightlife). [B6]
 
-## Slide 7 — Geographic patterns [PENDING sql 07 C]
-- **Borough with most pickups** (app demo Q1); **top 10 pickup zones** (app Q2); top dropoff zones; busiest borough pairs; **top pickup→dropoff routes** (app Q4).
-- **State up front:** FHV contributes to geography at only ~18% of its volume (locations missing for 82%), so geographic views are yellow/green-dominated. This is a documented limitation, not a bug.
+## Slide 7 — Geographic patterns [confirmed, sql 07 C + E2]
+- **Borough with most pickups** (app demo Q1): **Manhattan 39.4M** dominates, then Queens 5.3M (airports), Brooklyn 2.9M, Bronx 0.92M, Staten Island 0.57M. [C1]
+- **Top pickup zones** (app Q2): Upper East Side South, Midtown Center, **JFK Airport**, UES North, Penn Station, Midtown East, Times Sq, Lincoln Square, **LaGuardia**, Murray Hill — all Manhattan + the two airports. [C2]
+- **Busiest borough pair:** Manhattan→Manhattan = **36.4M (~82% of all borough-pair trips)**; then Queens→Manhattan (airport runs). [C4]
+- **Top zone routes** (app Q4): short intra-Manhattan hops — UES South↔UES North (~291k / 248k), Midtown↔UES. [C5]
+- **Geographic imbalance (anomaly E2):** dropoff/pickup ratio is huge in (a) **Newark Airport (12.6×) and "Outside NYC" (15.3×)** — drop-off-only zones cabs can't pick up in; (b) **parks & cemeteries** (Highbridge Park 17.9×, Crotona Park, Green-Wood) — destinations, not origins; (c) **Bronx neighborhoods** broadly — yellow drops people there but rarely gets hailed there, and the FHV rides that would balance it are invisible (null locations).
+- **State up front:** FHV contributes to geography at only ~18% of its volume (locations missing for 82%), so geographic views are yellow/green-dominated. A documented limitation, not a bug.
 
-## Slide 8 — Trip behavior [PENDING sql 07 D]
-- Distance / duration / fare summaries by type (yellow vs green; FHV excluded — no fare/distance columns).
-- Tip behavior on card trips; tip % of fare; fare-vs-distance relationship (binned).
+## Slide 8 — Trip behavior & cross-type comparison [confirmed, sql 07 D]
+- **Use MEDIANS, not means** — green's raw mean distance is **19.91 mi vs a 2.07 mi median** (extreme GPS-glitch outliers; `05` caps only at distance > 0). Yellow is skewed too (mean 6.59 vs median 1.89). Patched D1 now reports median + capped mean + raw mean side-by-side to make this visible. **Headline: both services ≈ 2-mile typical trips.**
+- **Green runs slightly longer/slower** (higher median distance, mean duration 21.4 vs yellow 17.6 min) — consistent with outer-borough routes.
+- **Yellow is pricier and tips more:** mean fare $20.07 vs green $17.97 (total $28.89 vs $25.24); card tip 25.5% vs 22.5%; ~91–93% of card trips tip. [D1/D2]
+- **Fare ∝ distance** is ~linear at ~$3–4/mi; the **JFK flat-fare (~$70) shows as a plateau around the 16–18 mile bins**. [D3]
+- **Cross-type story:** yellow 63% / FHV 36% / green <1%; yellow = Manhattan core + airports, green/FHV = outer boroughs (confirm split with new **D4** query); **opposite seasonality** (yellow summer slump vs FHV fall peak); FHV is volume/temporal/geography only (no fare/distance/tip).
 
-## Slide 9 — Anomaly investigation [PENDING sql 07 E]
-- Candidate 1: biggest day-over-day volume swings (holidays, storms, events).
-- Candidate 2: "dead zone" geographic imbalance — zones with pickups but ~no dropoffs (or vice versa).
-- Pick one, show the query result, give a concrete hypothesis.
+## Slide 9 — Anomaly investigation [confirmed, sql 07 E1]
+**Headline anomaly: the largest day-over-day volume swings are the 2025 federal-holiday calendar — essentially every top swing is explained.**
+- **Troughs on the holiday itself:** Christmas Dec 25 (−32.6%, year's lowest day at 106k), Thanksgiving Nov 27 (−26.1%), Independence Day Jul 4 (−26.0%).
+- **Rebounds the day after a Monday holiday:** May 27 (+45%, post-Memorial Day), Jan 21 (+41.6%, post-MLK/Inauguration), Sep 2 (+41.1%, post-Labor Day), Feb 18 (+30.9%, post-Presidents'), Oct 14 (+23.5%, post-Columbus).
+- **Long-weekend edges:** May 24 (−22.6%, Saturday exodus), Dec 1 (+27.6%, return-to-work after Thanksgiving).
+- **Analytical nuance to call out:** Monday holidays surface as the *Tuesday rebound* (Sundays are already low, so the Monday dip is modest); standalone weekday holidays surface as the negative trough. This explains both signs of the swing.
+- Secondary anomaly (geographic dropoff/pickup imbalance, E2) is folded into Slide 7.
 
 ## Slides 10–11 — Streamlit + Gemini app [PENDING deploy]
 - Architecture: text question → Gemini (Vertex AI, `google-genai` SDK) generates BigQuery SQL grounded in the schema (with NULL-by-`trip_type` notes) → validate → execute → display SQL + table + chart.

@@ -1,6 +1,0 @@
-REPLACE_ME_AFTER_DEPLOY
-
-# Run app/deploy.sh, copy the printed Cloud Run URL here (just the URL on the
-# first line; delete this comment block). Confirm it is LIVE before submitting —
-# the grade is whatever the app does on grading day. Do not post this URL
-# publicly: anyone with it can run BigQuery jobs on your billing account.

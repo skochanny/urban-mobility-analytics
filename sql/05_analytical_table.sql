@@ -8,16 +8,19 @@
 -- queries are cheap.
 --
 -- FILTERING DECISIONS (justify these in the deck):
---   DROP  - rows with NULL pickup OR dropoff location id
---   DROP  - rows with NULL or out-of-2025 pickup timestamp
---   DROP  - rows where a dropoff IS present but is before pickup or implies
---           a > 24h (1440 min) trip   (kept if dropoff is simply absent, which
---           is common & legitimate for FHV)
---   DROP  - metered (yellow/green) trips with distance <= 0, negative fare,
---           or non-positive total   (FHV exempt: it has no fare/distance)
---   KEEP  - FHV rows with NULL fare/distance/passenger (used for volume &
---           geography only, by design)
---   KEEP  - passenger_count = 0 (not reliable enough to drop; flagged, not cut)
+--   DROP  - NULL or out-of-2025 pickup timestamp (all trip types)
+--   DROP  - metered (yellow/green) rows with NULL pickup OR dropoff location id
+--   KEEP  - FHV rows with NULL location ids. Regular FHV is largely
+--           base-reported with no zone, so PU/DO location is NULL for a big
+--           share of rows. Keeping them preserves FHV VOLUME and TEMPORAL
+--           signal; they fall out of geographic queries on their own (the zone
+--           join yields NULL borough/zone). Dropping them would erase most FHV.
+--   DROP  - rows with a present dropoff that is zero/negative duration or
+--           > 24h. FHV rows with a NULL dropoff are kept (duration stays NULL).
+--   DROP  - metered trips with distance <= 0, negative fare, or non-positive
+--           total   (FHV exempt: it has no fare/distance columns at all)
+--   KEEP  - FHV rows with NULL fare/distance/passenger (volume & geography use)
+--   KEEP  - passenger_count = 0 (too unreliable to use as a drop criterion)
 -- tip_rate caveat: tips are only recorded for CARD payments, so cash trips show
 --   tip_rate = 0. Restrict tip analysis to payment_type = 1 in the deck.
 -- =====================================================================
@@ -30,16 +33,22 @@ WITH filtered AS (
   SELECT *
   FROM `its-a-struggle.nyc_taxi.unified_trips`
   WHERE
-        pu_location_id IS NOT NULL
-    AND do_location_id IS NOT NULL
-    AND pickup_datetime IS NOT NULL
+        pickup_datetime IS NOT NULL
     AND pickup_datetime >= TIMESTAMP('2025-01-01')
     AND pickup_datetime <  TIMESTAMP('2026-01-01')
+    -- Location ids required for metered trips; FHV exempt (see notes above).
+    AND (
+          trip_type = 'fhv'
+       OR (pu_location_id IS NOT NULL AND do_location_id IS NOT NULL)
+        )
+    -- Duration sanity only when a dropoff exists: strictly positive (drops the
+    -- zero-second and negative glitch rows) and within 24h (86400s).
     AND (
           dropoff_datetime IS NULL
-       OR (    dropoff_datetime >= pickup_datetime
-           AND TIMESTAMP_DIFF(dropoff_datetime, pickup_datetime, MINUTE) <= 1440)
+       OR (    TIMESTAMP_DIFF(dropoff_datetime, pickup_datetime, SECOND) > 0
+           AND TIMESTAMP_DIFF(dropoff_datetime, pickup_datetime, SECOND) <= 86400)
         )
+    -- Fare/distance sanity for metered trips only (FHV has neither).
     AND (
           trip_type = 'fhv'
        OR (trip_distance > 0 AND fare_amount >= 0 AND total_amount > 0)

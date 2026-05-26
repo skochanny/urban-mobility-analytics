@@ -40,7 +40,7 @@ final_project/
 
 ## 4. Key design decisions (defend these in the deck)
 - **External → unified VIEW → materialized analytical TABLE.** The unified layer is a *view* (free, single readable mapping); only the final table is materialized, per the spec's "must be a table, not a view." Building the table scans the external files exactly once.
-- **FHV is kept for volume/geography, excluded from fare/tip/distance.** FHV has no fare/distance/passenger/payment columns → set to NULL in the union. Behavior queries filter `trip_type IN ('yellow','green')`.
+- **FHV is kept for volume/geography, excluded from fare/tip/distance.** FHV has no fare/distance/passenger/payment columns → set to NULL in the union. Behavior queries filter `trip_type IN ('yellow','green')`. Additionally, FHV PU/DO **location ids are largely NULL** in the source, so the analytical-table filter exempts FHV from the location-not-null rule — FHV still counts toward volume/temporal but drops out of geographic queries on its own.
 - **Filtering (in 05):** drop NULL locations; drop NULL/out-of-2025 pickups; drop trips with a present-but-invalid dropoff (before pickup, or > 24h); drop metered trips with distance ≤ 0 / negative fare / non-positive total. **Keep** FHV rows with NULL dropoff (legit). Keep `passenger_count = 0` (flag, don't cut).
 - **Timezone:** TLC timestamps are treated as NYC wall-clock; no tz conversion, so `pickup_hour` is the local hour analysts expect.
 - **2025 specifics confirmed:** files include a new `cbd_congestion_fee` column (congestion pricing eff. 2025-01-05) on yellow/green; BigQuery column refs are case-insensitive so FHV casing quirks (PUlocationID/dropOff_datetime) resolve automatically.
@@ -66,7 +66,7 @@ final_project/
 
 ## 7. Open items / TODO
 - [x] **Verify bucket file naming** — CONFIRMED: files are in `yellow/`, `green/`, `fhv/` subfolders as `<type>_tripdata_2025-01..12.parquet`; CSV at root. URIs in `01` updated.
-- [ ] **Run 02 and confirm FHV columns** (esp. `SR_Flag`, `Affiliated_base_number`, `DOLocationID`, `dropOff_datetime`). Drop missing ones to NULL in `03` if creation errors.
+- [x] **Run 02 / confirm FHV columns** — CONFIRMED present (incl. SR_Flag, Affiliated_base_number, dropOff_datetime, PUlocationID/DOlocationID). Case differences are irrelevant (BQ is case-insensitive). Yellow uses `Airport_fee`. Key finding: **FHV PU/DO location ids are largely NULL** → `05` filter updated to exempt FHV from the location-not-null drop (keeps FHV for volume/temporal). Also now drops zero/negative-duration glitch rows.
 - [ ] Run the full pipeline; capture row/NULL counts (06) and analysis outputs (07).
 - [ ] Pick the strongest anomaly from `07` section E and write a hypothesis.
 - [ ] Deploy app, fill `app_url.txt`, test the 4 questions + a couple that *should* fail validation (e.g. "delete all trips") for the security demo.

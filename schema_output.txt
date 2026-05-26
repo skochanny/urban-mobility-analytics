@@ -1,0 +1,124 @@
+SELECT 'yellow' AS src, column_name, data_type
+FROM `its-a-struggle.nyc_taxi`.INFORMATION_SCHEMA.COLUMNS
+WHERE table_name = 'ext_yellow'
+ORDER BY ordinal_position; -- at [10:1]
++--------+-----------------------+-----------+
+|  src   |      column_name      | data_type |
++--------+-----------------------+-----------+
+| yellow | VendorID              | INT64     |
+| yellow | tpep_pickup_datetime  | TIMESTAMP |
+| yellow | tpep_dropoff_datetime | TIMESTAMP |
+| yellow | passenger_count       | INT64     |
+| yellow | trip_distance         | FLOAT64   |
+| yellow | RatecodeID            | INT64     |
+| yellow | store_and_fwd_flag    | STRING    |
+| yellow | PULocationID          | INT64     |
+| yellow | DOLocationID          | INT64     |
+| yellow | payment_type          | INT64     |
+| yellow | fare_amount           | FLOAT64   |
+| yellow | extra                 | FLOAT64   |
+| yellow | mta_tax               | FLOAT64   |
+| yellow | tip_amount            | FLOAT64   |
+| yellow | tolls_amount          | FLOAT64   |
+| yellow | improvement_surcharge | FLOAT64   |
+| yellow | total_amount          | FLOAT64   |
+| yellow | congestion_surcharge  | FLOAT64   |
+| yellow | Airport_fee           | FLOAT64   |
+| yellow | cbd_congestion_fee    | FLOAT64   |
++--------+-----------------------+-----------+
+SELECT 'green' AS src, column_name, data_type
+FROM `its-a-struggle.nyc_taxi`.INFORMATION_SCHEMA.COLUMNS
+WHERE table_name = 'ext_green'
+ORDER BY ordinal_position; -- at [15:1]
++-------+-----------------------+-----------+
+|  src  |      column_name      | data_type |
++-------+-----------------------+-----------+
+| green | VendorID              | INT64     |
+| green | lpep_pickup_datetime  | TIMESTAMP |
+| green | lpep_dropoff_datetime | TIMESTAMP |
+| green | store_and_fwd_flag    | STRING    |
+| green | RatecodeID            | INT64     |
+| green | PULocationID          | INT64     |
+| green | DOLocationID          | INT64     |
+| green | passenger_count       | INT64     |
+| green | trip_distance         | FLOAT64   |
+| green | fare_amount           | FLOAT64   |
+| green | extra                 | FLOAT64   |
+| green | mta_tax               | FLOAT64   |
+| green | tip_amount            | FLOAT64   |
+| green | tolls_amount          | FLOAT64   |
+| green | ehail_fee             | FLOAT64   |
+| green | improvement_surcharge | FLOAT64   |
+| green | total_amount          | FLOAT64   |
+| green | payment_type          | INT64     |
+| green | trip_type             | INT64     |
+| green | congestion_surcharge  | FLOAT64   |
+| green | cbd_congestion_fee    | FLOAT64   |
++-------+-----------------------+-----------+
+SELECT 'fhv' AS src, column_name, data_type
+FROM `its-a-struggle.nyc_taxi`.INFORMATION_SCHEMA.COLUMNS
+WHERE table_name = 'ext_fhv'
+ORDER BY ordinal_position; -- at [20:1]
++-----+------------------------+-----------+
+| src |      column_name       | data_type |
++-----+------------------------+-----------+
+| fhv | dispatching_base_num   | STRING    |
+| fhv | pickup_datetime        | TIMESTAMP |
+| fhv | dropOff_datetime       | TIMESTAMP |
+| fhv | PUlocationID           | INT64     |
+| fhv | DOlocationID           | INT64     |
+| fhv | SR_Flag                | INT64     |
+| fhv | Affiliated_base_number | STRING    |
++-----+------------------------+-----------+
+SELECT 'zones' AS src, column_name, data_type
+FROM `its-a-struggle.nyc_taxi`.INFORMATION_SCHEMA.COLUMNS
+WHERE table_name = 'ext_zones'
+ORDER BY ordinal_position; -- at [25:1]
++-------+--------------+-----------+
+|  src  | column_name  | data_type |
++-------+--------------+-----------+
+| zones | LocationID   | INT64     |
+| zones | Borough      | STRING    |
+| zones | Zone         | STRING    |
+| zones | service_zone | STRING    |
++-------+--------------+-----------+
+SELECT * FROM `its-a-struggle.nyc_taxi.ext_yellow` LIMIT 5; -- at [31:1]
++----------+----------------------+-----------------------+-----------------+---------------+------------+--------------------+--------------+--------------+--------------+-------------+-------+---------+------------+--------------+-----------------------+--------------+----------------------+-------------+--------------------+
+| VendorID | tpep_pickup_datetime | tpep_dropoff_datetime | passenger_count | trip_distance | RatecodeID | store_and_fwd_flag | PULocationID | DOLocationID | payment_type | fare_amount | extra | mta_tax | tip_amount | tolls_amount | improvement_surcharge | total_amount | congestion_surcharge | Airport_fee | cbd_congestion_fee |
++----------+----------------------+-----------------------+-----------------+---------------+------------+--------------------+--------------+--------------+--------------+-------------+-------+---------+------------+--------------+-----------------------+--------------+----------------------+-------------+--------------------+
+|        2 |  2025-08-01 00:52:23 |   2025-08-01 01:12:20 |               1 |          8.44 |          1 | N                  |          138 |          141 |            1 |        33.8 |   6.0 |     0.5 |        5.0 |         6.94 |                   1.0 |        57.49 |                  2.5 |        1.75 |                0.0 |
+|        2 |  2025-08-01 00:03:01 |   2025-08-01 00:15:33 |               2 |          4.98 |          1 | N                  |          138 |          193 |            1 |        21.2 |   6.0 |     0.5 |        0.0 |          0.0 |                   1.0 |        30.45 |                  0.0 |        1.75 |                0.0 |
+|        7 |  2025-08-01 00:24:38 |   2025-08-01 00:24:38 |               2 |          1.89 |          1 | N                  |          249 |           45 |            1 |        14.2 |   0.0 |     0.5 |       3.99 |          0.0 |                   1.0 |        23.94 |                  2.5 |         0.0 |               0.75 |
+|        7 |  2025-08-01 00:48:19 |   2025-08-01 00:48:19 |               1 |          2.35 |          1 | N                  |           79 |          229 |            1 |        11.4 |   0.0 |     0.5 |       3.43 |          0.0 |                   1.0 |        20.58 |                  2.5 |         0.0 |               0.75 |
+|        2 |  2025-08-01 00:25:34 |   2025-08-01 00:33:18 |               1 |          2.14 |          1 | N                  |           43 |           48 |            1 |        11.4 |   1.0 |     0.5 |       2.57 |          0.0 |                   1.0 |        19.72 |                  2.5 |         0.0 |               0.75 |
++----------+----------------------+-----------------------+-----------------+---------------+------------+--------------------+--------------+--------------+--------------+-------------+-------+---------+------------+--------------+-----------------------+--------------+----------------------+-------------+--------------------+
+SELECT * FROM `its-a-struggle.nyc_taxi.ext_green`  LIMIT 5; -- at [32:1]
++----------+----------------------+-----------------------+--------------------+------------+--------------+--------------+-----------------+---------------+-------------+-------+---------+------------+--------------+-----------+-----------------------+--------------+--------------+-----------+----------------------+--------------------+
+| VendorID | lpep_pickup_datetime | lpep_dropoff_datetime | store_and_fwd_flag | RatecodeID | PULocationID | DOLocationID | passenger_count | trip_distance | fare_amount | extra | mta_tax | tip_amount | tolls_amount | ehail_fee | improvement_surcharge | total_amount | payment_type | trip_type | congestion_surcharge | cbd_congestion_fee |
++----------+----------------------+-----------------------+--------------------+------------+--------------+--------------+-----------------+---------------+-------------+-------+---------+------------+--------------+-----------+-----------------------+--------------+--------------+-----------+----------------------+--------------------+
+|        2 |  2025-08-01 00:33:57 |   2025-08-01 00:58:10 | N                  |          1 |           70 |           82 |               1 |          2.44 |        21.9 |   1.0 |     0.5 |        0.0 |          0.0 |      NULL |                   1.0 |         24.4 |            2 |         1 |                  0.0 |                0.0 |
+|        2 |  2025-08-01 00:01:00 |   2025-08-01 00:12:58 | N                  |          1 |          130 |          216 |               1 |          4.06 |        18.4 |   1.0 |     0.5 |        0.0 |          0.0 |      NULL |                   1.0 |         20.9 |            2 |         1 |                  0.0 |                0.0 |
+|        2 |  2025-08-01 00:11:02 |   2025-08-01 00:16:06 | N                  |          1 |           74 |          263 |               1 |          2.09 |        10.0 |   1.0 |     0.5 |       3.05 |          0.0 |      NULL |                   1.0 |         18.3 |            1 |         1 |                 2.75 |                0.0 |
+|        2 |  2025-08-01 00:44:09 |   2025-08-01 00:47:04 | N                  |          1 |           42 |           41 |               1 |          0.53 |         5.1 |   1.0 |     0.5 |        0.0 |          0.0 |      NULL |                   1.0 |          7.6 |            2 |         1 |                  0.0 |                0.0 |
+|        2 |  2025-08-01 00:57:06 |   2025-08-01 01:05:32 | N                  |          1 |           75 |          239 |               1 |          2.28 |        12.1 |   1.0 |     0.5 |       3.47 |          0.0 |      NULL |                   1.0 |        20.82 |            1 |         1 |                 2.75 |                0.0 |
++----------+----------------------+-----------------------+--------------------+------------+--------------+--------------+-----------------+---------------+-------------+-------+---------+------------+--------------+-----------+-----------------------+--------------+--------------+-----------+----------------------+--------------------+
+SELECT * FROM `its-a-struggle.nyc_taxi.ext_fhv`    LIMIT 5; -- at [33:1]
++----------------------+---------------------+---------------------+--------------+--------------+---------+------------------------+
+| dispatching_base_num |   pickup_datetime   |  dropOff_datetime   | PUlocationID | DOlocationID | SR_Flag | Affiliated_base_number |
++----------------------+---------------------+---------------------+--------------+--------------+---------+------------------------+
+| B00009               | 2025-10-01 00:04:00 | 2025-10-01 00:26:00 |         NULL |         NULL |    NULL | B00009                 |
+| B00009               | 2025-10-01 00:04:00 | 2025-10-01 00:28:00 |         NULL |         NULL |    NULL | B00009                 |
+| B00009               | 2025-10-01 00:22:00 | 2025-10-01 00:35:00 |         NULL |         NULL |    NULL | B00009                 |
+| B00009               | 2025-10-01 00:22:00 | 2025-10-01 00:49:00 |         NULL |         NULL |    NULL | B00009                 |
+| B00013               | 2025-10-01 00:05:28 | 2025-10-01 00:47:00 |         NULL |         NULL |    NULL | B00014                 |
++----------------------+---------------------+---------------------+--------------+--------------+---------+------------------------+
+SELECT * FROM `its-a-struggle.nyc_taxi.ext_zones`  LIMIT 5; -- at [34:1]
++------------+---------------+-------------------------+--------------+
+| LocationID |    Borough    |          Zone           | service_zone |
++------------+---------------+-------------------------+--------------+
+|          1 | EWR           | Newark Airport          | EWR          |
+|          2 | Queens        | Jamaica Bay             | Boro Zone    |
+|          3 | Bronx         | Allerton/Pelham Gardens | Boro Zone    |
+|          4 | Manhattan     | Alphabet City           | Yellow Zone  |
+|          5 | Staten Island | Arden Heights           | Boro Zone    |
++------------+---------------+-------------------------+--------------+

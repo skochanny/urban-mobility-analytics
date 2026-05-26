@@ -18,6 +18,7 @@ import os
 import re
 
 import pandas as pd
+import sqlparse
 import streamlit as st
 from google import genai
 from google.genai import types as genai_types
@@ -115,6 +116,19 @@ QUERY RULES:
   have NULL pickup/dropoff locations; without this filter the NULL bucket dominates
   and shows up as a spurious top result. (The only exception is a question that is
   explicitly *about* missing/NULL locations.)
+- For "top N / most common / busiest ... for EACH / per <category>" questions
+  (e.g. "top routes for each of yellow and green"), do NOT use one global
+  ORDER BY ... LIMIT — the largest group (yellow ≈ 63% of trips) crowds out the
+  rest and green (<1%) disappears entirely. Rank WITHIN each group with a window
+  function and keep N per group, e.g.:
+    SELECT * FROM (
+      SELECT trip_type, pickup_zone, dropoff_zone, COUNT(*) AS trip_count,
+             ROW_NUMBER() OVER (PARTITION BY trip_type ORDER BY COUNT(*) DESC) AS rn
+      FROM `{FQ_TABLE}`
+      WHERE trip_type IN ('yellow','green')
+        AND pickup_zone IS NOT NULL AND dropoff_zone IS NOT NULL
+      GROUP BY trip_type, pickup_zone, dropoff_zone
+    ) WHERE rn <= 10 ORDER BY trip_type, trip_count DESC
 - Add a sensible LIMIT (e.g. 100) for row-listing questions; never LIMIT pure aggregates.
 - pickup_dayofweek is 1=Sunday..7=Saturday; prefer pickup_dayname for readability.
 """.strip()
@@ -147,6 +161,17 @@ def strip_fences(text: str) -> str:
     t = re.sub(r"^```[a-zA-Z]*\s*", "", t)
     t = re.sub(r"\s*```$", "", t)
     return t.strip()
+
+
+def format_sql(sql: str) -> str:
+    """Pretty-print SQL multi-line for display, regardless of how the model
+    formatted it. Display-only — the raw SQL is what gets validated and run.
+    Falls back to the original string if sqlparse can't handle it."""
+    try:
+        pretty = sqlparse.format(sql, reindent=True, keyword_case="upper").strip()
+        return pretty or sql
+    except Exception:  # noqa: BLE001
+        return sql
 
 
 def parse_model_json(raw: str) -> tuple[str, str]:
@@ -294,7 +319,7 @@ if st.button("Ask", type="primary") and question.strip():
         st.markdown(f"**Interpretation:** {explanation}")
 
     st.subheader("Generated SQL")
-    st.code(sql, language="sql")
+    st.code(format_sql(sql), language="sql")
 
     ok, reason = validate_sql(sql)
     if not ok:
@@ -311,6 +336,18 @@ if st.button("Ask", type="primary") and question.strip():
     st.subheader(f"Result ({len(df):,} rows)")
     if df.empty:
         st.info("The query ran but returned no rows.")
+    elif "trip_type" in df.columns and df["trip_type"].nunique() > 1 \
+            and len(df) > df["trip_type"].nunique():
+        # Per-type listing (e.g. "top routes for each of yellow and green"):
+        # one table per trip_type so a small group (green) isn't buried under a
+        # large one (yellow). A 1-row-per-type comparison falls through to the
+        # single combined table below instead.
+        for ttype, group in df.groupby("trip_type", sort=False):
+            st.markdown(f"**{str(ttype).title()}** ({len(group):,} rows)")
+            st.dataframe(
+                group.drop(columns=["trip_type"]).reset_index(drop=True),
+                use_container_width=True,
+            )
     else:
         st.dataframe(df, use_container_width=True)
         maybe_chart(df)

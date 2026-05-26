@@ -104,14 +104,22 @@ LIMIT 10;
 -- =========================================================
 -- D. TRIP BEHAVIOR  (yellow/green only — FHV has no fare/distance)
 -- =========================================================
--- D1: distance / duration / fare summary by type
+-- D1: distance / duration / fare by type.
+-- NOTE: raw means are skewed by extreme GPS-glitch outliers (green's raw mean
+-- distance is ~20mi vs a ~2mi median!). Report MEDIANS as the headline; the
+-- capped mean (<=100mi) gives an un-skewed average; the raw mean is kept only
+-- to expose the skew on the data-quality slide.
 SELECT
   trip_type,
-  ROUND(AVG(trip_distance), 2)      AS avg_distance_mi,
-  ROUND(AVG(trip_duration_min), 1)  AS avg_duration_min,
-  ROUND(AVG(fare_amount), 2)        AS avg_fare,
-  ROUND(AVG(total_amount), 2)       AS avg_total,
-  APPROX_QUANTILES(trip_distance, 100)[OFFSET(50)] AS median_distance_mi
+  COUNT(*)                                                AS trips,
+  APPROX_QUANTILES(trip_distance, 100)[OFFSET(50)]        AS median_distance_mi,
+  ROUND(AVG(IF(trip_distance <= 100, trip_distance, NULL)), 2) AS mean_distance_mi_capped,
+  ROUND(AVG(trip_distance), 2)                            AS mean_distance_mi_raw,
+  APPROX_QUANTILES(trip_duration_min, 100)[OFFSET(50)]    AS median_duration_min,
+  ROUND(AVG(trip_duration_min), 1)                        AS mean_duration_min_raw,
+  APPROX_QUANTILES(fare_amount, 100)[OFFSET(50)]          AS median_fare,
+  ROUND(AVG(fare_amount), 2)                              AS mean_fare,
+  ROUND(AVG(total_amount), 2)                             AS mean_total
 FROM `its-a-struggle.nyc_taxi.trips_analytics`
 WHERE trip_type IN ('yellow','green')
 GROUP BY trip_type;
@@ -136,6 +144,20 @@ FROM `its-a-struggle.nyc_taxi.trips_analytics`
 WHERE trip_type IN ('yellow','green') AND trip_distance BETWEEN 0 AND 30
 GROUP BY distance_mi_bin
 ORDER BY distance_mi_bin;
+
+-- D4 (cross-type): operating turf — pickup-borough mix by trip type.
+-- Located trips only (FHV's ~82% null-location rows drop out here), but it
+-- still shows how yellow concentrates vs where green/FHV actually pick up.
+SELECT
+  pickup_borough,
+  COUNTIF(trip_type = 'yellow') AS yellow,
+  COUNTIF(trip_type = 'green')  AS green,
+  COUNTIF(trip_type = 'fhv')    AS fhv,
+  COUNT(*)                      AS total
+FROM `its-a-struggle.nyc_taxi.trips_analytics`
+WHERE pickup_borough IS NOT NULL
+GROUP BY pickup_borough
+ORDER BY total DESC;
 
 -- =========================================================
 -- E. ANOMALY INVESTIGATION  (pick the strongest one for the deck)

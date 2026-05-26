@@ -95,6 +95,13 @@ RULES:
 - For fare/distance/tip/passenger questions, filter to trip_type IN ('yellow','green')
   because those columns are NULL for fhv.
 - For tip questions, also filter payment_type = 1 (tips only recorded on card).
+- For any geographic question that groups by, ranks, or aggregates over a location
+  column (pickup_borough, pickup_zone, dropoff_borough, dropoff_zone), you MUST
+  exclude rows where that column is NULL — e.g. add `WHERE pickup_zone IS NOT NULL`
+  (and the dropoff equivalent for route/dropoff questions). About 82% of fhv trips
+  have NULL pickup/dropoff locations; without this filter the NULL bucket dominates
+  and shows up as a spurious top result. (The only exception is a question that is
+  explicitly *about* missing/NULL locations.)
 - Add a sensible LIMIT (e.g. 100) for row-listing questions; never LIMIT pure aggregates.
 - pickup_dayofweek is 1=Sunday..7=Saturday; prefer pickup_dayname for readability.
 """.strip()

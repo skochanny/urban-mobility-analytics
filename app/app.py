@@ -1,15 +1,19 @@
 """
 Urban Mobility Analytics — natural-language questions over NYC taxi data.
 
-A user types a question in plain English. Gemini (via Vertex AI) writes a
-BigQuery SQL SELECT grounded in the trips_analytics schema. We validate that
-SQL (read-only, single statement, no DDL/DML), run it against BigQuery, and
-show the SQL, the result table, and a chart when the shape allows.
+A user types a question in plain English. Gemini (via Vertex AI) returns a JSON
+object {sql, explanation} grounded in the trips_analytics schema: a read-only
+BigQuery SELECT plus a one-line interpretation. We show the interpretation,
+validate the SQL (read-only, single statement, no DDL/DML), run it against
+BigQuery, and show the SQL, the result table, and a chart when the shape allows.
+If the model declines (empty sql — e.g. a write/DDL request), we show its reason
+instead of running anything.
 
 Auth: Application Default Credentials only — on Cloud Run this is the service
 account. There are NO API keys or secrets anywhere in this file or its env.
 """
 
+import json
 import os
 import re
 
@@ -87,10 +91,19 @@ One row = one taxi trip. Columns:
   trip_duration_min    FLOAT64  minutes; NULL when dropoff is NULL
   tip_rate             FLOAT64  tip_amount / fare_amount; meaningful for card trips
 
-RULES:
-- Output ONE BigQuery Standard SQL SELECT statement and NOTHING else.
-- No prose, no explanation, no markdown fences.
-- Read-only. Never INSERT/UPDATE/DELETE/DROP/CREATE/ALTER/MERGE/TRUNCATE.
+OUTPUT FORMAT:
+- Respond with a single JSON object and NOTHING else (no markdown fences, no prose):
+  {{"sql": "<one BigQuery Standard SQL SELECT>", "explanation": "<one sentence>"}}
+- "sql": exactly ONE read-only SELECT statement, OR an empty string "" if the
+  request cannot be answered with a safe read-only SELECT over this table.
+- "explanation": ONE plain-English sentence describing what the query returns. If
+  "sql" is empty, put the reason you are declining here instead.
+- If the request asks to modify data or schema (INSERT/UPDATE/DELETE/DROP/CREATE/
+  ALTER/MERGE/TRUNCATE), or is unrelated to this table, set "sql" to "" and explain
+  why in "explanation". Do NOT emit a placeholder query such as `SELECT 1`.
+
+QUERY RULES:
+- Read-only. The sql must never INSERT/UPDATE/DELETE/DROP/CREATE/ALTER/MERGE/TRUNCATE.
 - Always query the fully-qualified table `{FQ_TABLE}`.
 - For fare/distance/tip/passenger questions, filter to trip_type IN ('yellow','green')
   because those columns are NULL for fhv.
@@ -129,14 +142,37 @@ def get_bq_client() -> bigquery.Client:
 # Core steps: generate -> validate -> execute
 # --------------------------------------------------------------------------
 def strip_fences(text: str) -> str:
-    """Remove ```sql ... ``` or ``` ... ``` wrappers Gemini sometimes adds."""
+    """Remove ```lang ... ``` wrappers (```sql, ```json, or bare ```)."""
     t = text.strip()
-    t = re.sub(r"^```(?:sql)?\s*", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"^```[a-zA-Z]*\s*", "", t)
     t = re.sub(r"\s*```$", "", t)
     return t.strip()
 
 
-def generate_sql(question: str) -> str:
+def parse_model_json(raw: str) -> tuple[str, str]:
+    """Parse Gemini's JSON reply into (sql, explanation), defensively.
+
+    Falls back to treating the whole reply as SQL if it isn't valid JSON, so the
+    pipeline still works if the model ever ignores the JSON contract. An empty
+    sql string is a deliberate signal that the model declined (see UI handling).
+    """
+    cleaned = strip_fences(raw)
+    try:
+        obj = json.loads(cleaned)
+        sql = strip_fences(str(obj.get("sql") or "")).strip()
+        explanation = str(obj.get("explanation") or "").strip()
+        return sql, explanation
+    except (json.JSONDecodeError, TypeError, AttributeError):
+        # Not JSON — treat the raw text as the SQL; no explanation available.
+        return cleaned, ""
+
+
+def generate_sql(question: str) -> tuple[str, str]:
+    """Ask Gemini for {sql, explanation}; returns (sql, explanation).
+
+    sql == "" means the model declined (e.g. a write/DDL or off-topic request);
+    the caller shows `explanation` as the reason instead of running anything.
+    """
     client = get_genai_client()
     resp = client.models.generate_content(
         model=GEMINI_MODEL,
@@ -144,9 +180,10 @@ def generate_sql(question: str) -> str:
         config=genai_types.GenerateContentConfig(
             system_instruction=SCHEMA_PROMPT,
             temperature=0.0,
+            response_mime_type="application/json",
         ),
     )
-    return strip_fences(resp.text or "")
+    return parse_model_json(resp.text or "")
 
 
 def validate_sql(sql: str) -> tuple[bool, str]:
@@ -183,7 +220,13 @@ def run_query(sql: str) -> pd.DataFrame:
 
 
 def maybe_chart(df: pd.DataFrame) -> None:
-    """Draw a chart when the result shape clearly supports one."""
+    """Draw a chart only for aggregated results.
+
+    "Aggregated" heuristic: a single label column with one row per distinct value
+    (as GROUP BY produces) and a modest number of rows. Raw row listings (e.g. a
+    LIMIT 100 dump) tend to have a repeated first column or too many rows, so they
+    are left as just a table.
+    """
     if df.empty or df.shape[1] < 2:
         return
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
@@ -194,6 +237,12 @@ def maybe_chart(df: pd.DataFrame) -> None:
     value_col = numeric_cols[-1]
     # Don't chart if the label column is itself the only numeric column.
     if label_col == value_col and len(numeric_cols) == 1:
+        return
+
+    # Aggregated-only guard: one row per label, and few enough rows to read as a
+    # chart. Duplicated labels or a long result => looks like raw rows, not a
+    # group-by, so skip charting and just show the table.
+    if df[label_col].duplicated().any() or len(df) > 50:
         return
 
     chart_df = df.set_index(label_col)[[value_col]]
@@ -225,12 +274,24 @@ question = st.text_input(
 )
 
 if st.button("Ask", type="primary") and question.strip():
-    with st.spinner("Generating SQL with Gemini…"):
+    with st.spinner("Asking Gemini…"):
         try:
-            sql = generate_sql(question.strip())
+            sql, explanation = generate_sql(question.strip())
         except Exception as e:  # noqa: BLE001
             st.error(f"Gemini call failed: {e}")
             st.stop()
+
+    # Model declined (empty sql — e.g. a write/DDL or off-topic request):
+    # show its reason and run nothing. No SELECT 1 no-op.
+    if not sql:
+        st.warning(
+            "Gemini didn't produce a query for this request. "
+            f"Reason: {explanation or 'no explanation provided.'}"
+        )
+        st.stop()
+
+    if explanation:
+        st.markdown(f"**Interpretation:** {explanation}")
 
     st.subheader("Generated SQL")
     st.code(sql, language="sql")

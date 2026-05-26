@@ -1,0 +1,7 @@
+# Pinned to known-good major versions; loosen if Cloud Build resolves conflicts.
+streamlit>=1.40,<2
+google-genai>=1.0,<2
+google-cloud-bigquery>=3.25,<4
+pandas>=2.1,<3
+db-dtypes>=1.2,<2          # required for BigQuery -> pandas (.to_dataframe())
+pyarrow>=15

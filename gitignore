@@ -1,0 +1,23 @@
+# --- Do NOT publish in a public repo ---------------------------------
+# The live Cloud Run URL lets anyone run BigQuery jobs on YOUR billing
+# account. Keep app_url.txt locally for the Canvas zip; never push it.
+app_url.txt
+
+# Credentials / keys — never commit. (No JSON is needed in this repo, so
+# ignoring all of it is the safe default; loosen later if you add config.)
+*.json
+*.pem
+*.key
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Notebook / OS / editor cruft
+.ipynb_checkpoints/
+.DS_Store
+*.swp

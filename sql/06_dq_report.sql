@@ -8,11 +8,11 @@
 -- 1) Row counts by trip type + share --------------------------------
 SELECT
   trip_type,
-  COUNT(*)                                              AS rows,
+  COUNT(*)                                              AS num_rows,
   ROUND(100 * COUNT(*) / SUM(COUNT(*)) OVER (), 2)      AS pct_of_total
 FROM `its-a-struggle.nyc_taxi.trips_analytics`
 GROUP BY trip_type
-ORDER BY rows DESC;
+ORDER BY num_rows DESC;
 
 -- 2) Date coverage sanity (should be fully inside 2025) -------------
 SELECT

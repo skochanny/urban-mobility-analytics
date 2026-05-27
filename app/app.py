@@ -41,6 +41,9 @@ FQ_TABLE = f"{PROJECT_ID}.{BQ_DATASET}.{BQ_TABLE}"
 # more than this against a clustered/partitioned single table.
 MAX_BYTES_BILLED = 5 * 1024 ** 3
 
+# UI accent — kept in sync with primaryColor in .streamlit/config.toml.
+TAXI_YELLOW = "#FFC400"
+
 # --------------------------------------------------------------------------
 # Schema grounding — this is what makes the generated SQL actually run.
 # It documents which columns are NULL for which trip_type (the #1 cause of
@@ -275,9 +278,9 @@ def maybe_chart(df: pd.DataFrame) -> None:
     chart_df = df.set_index(label_col)[[value_col]]
     # Time-ish first column -> line; otherwise -> bar. Keep it simple.
     if re.search(r"hour|date|month|year|dayofweek", str(label_col), re.IGNORECASE):
-        st.line_chart(chart_df)
+        st.line_chart(chart_df, color=TAXI_YELLOW)
     else:
-        st.bar_chart(chart_df)
+        st.bar_chart(chart_df, color=TAXI_YELLOW)
 
 
 # --------------------------------------------------------------------------
@@ -285,9 +288,6 @@ def maybe_chart(df: pd.DataFrame) -> None:
 # Colors come from .streamlit/config.toml; this layers the image, fonts, and
 # the taxi-yellow accents on top via injected CSS.
 # --------------------------------------------------------------------------
-TAXI_YELLOW = "#FFC400"
-
-
 @st.cache_data
 def _bg_data_uri() -> str:
     """Base64 data-URI for the background image. Empty string if missing
@@ -318,7 +318,7 @@ def inject_css() -> None:
         @import url('https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:wght@400;500;700&display=swap');
 
         .stApp {{ background: {app_bg}; }}
-        .stApp, .stApp p, .stApp li, .stApp label, .stApp span {{
+        .stApp, .stApp p, .stApp li, .stApp label {{
             font-family: 'DM Sans', sans-serif;
         }}
         .stApp h1, .stApp h2, .stApp h3 {{

@@ -382,6 +382,13 @@ def inject_css() -> None:
         .stApp [data-testid="stExpander"] {{
             border: 1px solid rgba(255,196,0,0.18); border-radius: 10px;
         }}
+        /* st.code ships its own navy bg that ignores secondaryBackgroundColor —
+           force it to match the charcoal theme. */
+        .stApp [data-testid="stCode"],
+        .stApp [data-testid="stCode"] pre,
+        .stApp pre {{
+            background-color: #17171A !important;
+        }}
         .stApp strong {{ color: {TAXI_YELLOW}; }}
         </style>
         """,

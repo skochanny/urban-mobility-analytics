@@ -13,9 +13,11 @@ Auth: Application Default Credentials only — on Cloud Run this is the service
 account. There are NO API keys or secrets anywhere in this file or its env.
 """
 
+import base64
 import json
 import os
 import re
+from pathlib import Path
 
 import pandas as pd
 import sqlparse
@@ -279,11 +281,138 @@ def maybe_chart(df: pd.DataFrame) -> None:
 
 
 # --------------------------------------------------------------------------
+# Presentation: dimmed B&W background + transit-poster hero banner.
+# Colors come from .streamlit/config.toml; this layers the image, fonts, and
+# the taxi-yellow accents on top via injected CSS.
+# --------------------------------------------------------------------------
+TAXI_YELLOW = "#FFC400"
+
+
+@st.cache_data
+def _bg_data_uri() -> str:
+    """Base64 data-URI for the background image. Empty string if missing
+    (app still works, just falls back to the flat dark theme)."""
+    path = Path(__file__).parent / "assets" / "bg.jpg"
+    try:
+        return "data:image/jpeg;base64," + base64.b64encode(path.read_bytes()).decode()
+    except FileNotFoundError:
+        return ""
+
+
+def inject_css() -> None:
+    bg = _bg_data_uri()
+    # Dark gradient over the photo: a touch lighter behind the hero, dimmer
+    # behind the data below so tables stay readable. User wants it subtle.
+    if bg:
+        app_bg = (
+            "linear-gradient(180deg, rgba(10,10,12,0.84) 0%, "
+            "rgba(10,10,12,0.93) 55%, rgba(10,10,12,0.97) 100%), "
+            f'url("{bg}") center/cover fixed no-repeat'
+        )
+    else:
+        app_bg = "#0d0d0f"
+
+    st.markdown(
+        f"""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:wght@400;500;700&display=swap');
+
+        .stApp {{ background: {app_bg}; }}
+        .stApp, .stApp p, .stApp li, .stApp label, .stApp span {{
+            font-family: 'DM Sans', sans-serif;
+        }}
+        .stApp h1, .stApp h2, .stApp h3 {{
+            font-family: 'DM Sans', sans-serif; letter-spacing: -0.01em;
+        }}
+
+        /* Hero banner ------------------------------------------------------ */
+        .hero {{
+            position: relative;
+            background: rgba(18,18,21,0.72);
+            border: 1px solid rgba(255,196,0,0.25);
+            border-radius: 14px;
+            padding: 30px 34px 26px;
+            margin: 4px 0 26px;
+            backdrop-filter: blur(3px);
+            box-shadow: 0 18px 50px rgba(0,0,0,0.55);
+            overflow: hidden;
+        }}
+        /* Black-and-yellow taxi checker stripe across the top */
+        .hero::before {{
+            content: ""; position: absolute; top: 0; left: 0; right: 0; height: 10px;
+            background-color: #0d0d0f;
+            background-image:
+                linear-gradient(45deg, {TAXI_YELLOW} 25%, transparent 25%),
+                linear-gradient(-45deg, {TAXI_YELLOW} 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, {TAXI_YELLOW} 75%),
+                linear-gradient(-45deg, transparent 75%, {TAXI_YELLOW} 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+        }}
+        .hero-kicker {{
+            font-family: 'DM Sans', sans-serif; font-weight: 700;
+            letter-spacing: 0.32em; text-transform: uppercase;
+            font-size: 0.72rem; color: {TAXI_YELLOW}; margin: 8px 0 6px;
+        }}
+        .hero-title {{
+            font-family: 'Anton', sans-serif; font-weight: 400;
+            font-size: clamp(2.4rem, 5.5vw, 4rem); line-height: 0.98;
+            letter-spacing: 0.01em; text-transform: uppercase;
+            color: #ffffff; margin: 0 0 12px;
+        }}
+        .hero-title .spark {{ color: {TAXI_YELLOW}; }}
+        .hero-sub {{
+            font-size: 1.05rem; line-height: 1.5; color: #d6d6d8;
+            max-width: 70ch; margin: 0;
+        }}
+        .hero-sub code {{
+            color: {TAXI_YELLOW}; background: rgba(255,196,0,0.08);
+            padding: 1px 6px; border-radius: 5px; font-size: 0.92em;
+        }}
+
+        /* Accents on Streamlit chrome ------------------------------------- */
+        .stButton > button {{
+            font-family: 'DM Sans', sans-serif; font-weight: 700;
+            letter-spacing: 0.04em; border-radius: 9px;
+        }}
+        .stButton > button[kind="primary"],
+        .stButton > button[data-testid*="primary"] {{
+            color: #141414 !important;
+        }}
+        .stApp [data-testid="stExpander"] {{
+            border: 1px solid rgba(255,196,0,0.18); border-radius: 10px;
+        }}
+        .stApp strong {{ color: {TAXI_YELLOW}; }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_hero() -> None:
+    st.markdown(
+        f"""
+        <div class="hero">
+          <div class="hero-kicker">NYC&nbsp;·&nbsp;Yellow&nbsp;·&nbsp;Green&nbsp;·&nbsp;FHV&nbsp;·&nbsp;2025</div>
+          <h1 class="hero-title">🚕 Urban Mobility <span class="spark">Analytics</span></h1>
+          <p class="hero-sub">
+            Ask New York's streets a question — in plain English. Our Gemini-powered
+            engine turns it into live BigQuery SQL against
+            <code>{FQ_TABLE}</code>, runs it, and brings the answer straight back.
+            All your mobility data, no query language required.
+          </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# --------------------------------------------------------------------------
 # UI
 # --------------------------------------------------------------------------
 st.set_page_config(page_title="Urban Mobility Analytics", page_icon="🚕", layout="wide")
-st.title("🚕 Urban Mobility Analytics")
-st.caption(f"Ask a question in plain English. Querying `{FQ_TABLE}` via Gemini + BigQuery.")
+inject_css()
+render_hero()
 
 with st.expander("Example questions"):
     st.markdown(

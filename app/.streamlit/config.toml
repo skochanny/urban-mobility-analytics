@@ -1,0 +1,10 @@
+# Dark charcoal base with NYC taxi-yellow accent.
+# Sets the native widget colors (e.g. the "Ask" button); the background image,
+# hero banner, and fonts are layered on via injected CSS in app.py.
+[theme]
+base = "dark"
+primaryColor = "#FFC400"              # taxi yellow — buttons, focus, accents
+backgroundColor = "#0D0D0F"           # near-black (fallback under the bg image)
+secondaryBackgroundColor = "#17171A"  # dark gray — inputs, code, expander, tables
+textColor = "#F2F2F2"
+font = "sans serif"

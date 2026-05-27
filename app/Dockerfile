@@ -9,6 +9,8 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY app.py .
+COPY .streamlit/ .streamlit/
+COPY assets/ assets/
 
 # Cloud Run injects $PORT (default 8080). Streamlit must bind 0.0.0.0:$PORT.
 ENV PORT=8080
